@@ -10,14 +10,14 @@ class DQNAgent:
     for stable training.
     """
     def __init__(self, observation_shape, action_size, 
-                 learning_rate=0.00025,       # <-- CHANGED: Lowered learning rate
+                 learning_rate=0.00025,       
                  gamma=0.99, 
                  epsilon=1.0, 
-                 epsilon_decay=0.999,      # <-- CHANGED: Slower decay for more episodes
+                 epsilon_decay=0.999,      
                  epsilon_min=0.01,
-                 replay_buffer_size=20000,   # <-- CHANGED: Slightly larger buffer
-                 target_update_freq=500):    # <-- NEW: Frequency to update the target network (in steps)
-
+                 replay_buffer_size=20000,   
+                 target_update_freq=500):    
+        
         self.observation_shape = observation_shape
         self.action_size = action_size
         self.lr = learning_rate
@@ -25,19 +25,15 @@ class DQNAgent:
         self.epsilon = epsilon
         self.epsilon_decay = epsilon_decay
         self.epsilon_min = epsilon_min
-        self.target_update_freq = target_update_freq # <-- NEW
-        self.update_counter = 0                      # <-- NEW: Counter for target network updates
+        self.target_update_freq = target_update_freq 
+        self.update_counter = 0                      
 
         self.replay_buffer = collections.deque(maxlen=replay_buffer_size)
 
-        # Main "online" network for predicting Q-values and choosing actions
         self.q_network = self._build_q_network()
-        # Separate "target" network for calculating stable target Q-values
         self.target_network = self._build_q_network() # <-- NEW
-        # Initialize target network with the same weights as the online network
         self.target_network.set_weights(self.q_network.get_weights()) # <-- NEW
 
-        # Optimizer with Gradient Clipping
         self.optimizer = optimizers.Adam(learning_rate=self.lr, clipvalue=1.0) # <-- CHANGED: Added clipvalue
         self.loss_fn = tf.keras.losses.MeanSquaredError()
 
@@ -46,7 +42,6 @@ class DQNAgent:
         self.q_network.summary()
 
     def _build_q_network(self):
-        # (This function remains unchanged)
         model = models.Sequential([
             layers.Input(shape=self.observation_shape),
             layers.Conv2D(filters=32, kernel_size=(3, 3), activation='relu', padding='same'),
@@ -64,11 +59,9 @@ class DQNAgent:
         return model
 
     def store_experience(self, state, action, reward, next_state, terminated):
-        # (This function remains unchanged)
         self.replay_buffer.append((state, action, reward, next_state, terminated))
 
     def choose_action(self, state, legal_actions_mask):
-        # (This function remains unchanged)
         legal_indices = np.where(legal_actions_mask == 1)[0]
         if len(legal_indices) == 0: return None
         if random.random() < self.epsilon:
@@ -99,8 +92,6 @@ class DQNAgent:
         next_states_tensor = tf.convert_to_tensor(next_states, dtype=tf.float32)
         terminateds_tensor = tf.convert_to_tensor(terminateds, dtype=tf.float32)
 
-        # --- THIS IS THE KEY CHANGE ---
-        # Calculate target Q-values using the STABLE target_network
         next_q_values = self.target_network(next_states_tensor) # <-- CHANGED: Use target_network
         max_next_q = tf.reduce_max(next_q_values, axis=1)
         target_q_values = rewards_tensor + self.gamma * max_next_q * (1 - terminateds_tensor)
@@ -114,18 +105,16 @@ class DQNAgent:
         gradients = tape.gradient(loss, self.q_network.trainable_variables)
         self.optimizer.apply_gradients(zip(gradients, self.q_network.trainable_variables))
         
-        # Increment counter and update target network if it's time
-        self.update_counter += 1 # <-- NEW
+        self.update_counter += 1 
         if self.update_counter % self.target_update_freq == 0: # <-- NEW
             self._update_target_network()
 
         return loss.numpy()
         
-    def _update_target_network(self): # <-- NEW
+    def _update_target_network(self):
         """Copies the weights from the main q_network to the target_network."""
         print("--- Updating target network ---")
         self.target_network.set_weights(self.q_network.get_weights())
 
     def decay_epsilon(self):
-        # (This function remains unchanged)
         self.epsilon = max(self.epsilon_min, self.epsilon * self.epsilon_decay)

@@ -2,7 +2,7 @@ import numpy as np
 import tensorflow as tf
 from tensorflow.keras import layers, models, optimizers
 from tensorflow.keras import backend as K
-import tensorflow_probability as tfp # For probability distributions and sampling
+import tensorflow_probability as tfp 
 
 tfd = tfp.distributions
 
@@ -19,10 +19,10 @@ class PPOAgent:
         self.action_size = action_size
         self.actor_lr = actor_lr
         self.critic_lr = critic_lr
-        self.gamma = gamma          # Discount factor
-        self.lambda_gae = lambda_gae # Lambda for Generalized Advantage Estimation
-        self.clip_ratio = clip_ratio # Clipping parameter for PPO's actor loss
-
+        self.gamma = gamma          
+        self.lambda_gae = lambda_gae 
+        self.clip_ratio = clip_ratio 
+        
         self.actor = self._build_actor_network()
         self.critic = self._build_critic_network()
 
@@ -41,7 +41,6 @@ class PPOAgent:
         self.critic.summary()
 
     def _build_actor_network(self):
-        # (This function remains unchanged)
         input_layer = layers.Input(shape=self.observation_shape)
         conv1 = layers.Conv2D(filters=32, kernel_size=(3, 3), activation='relu', padding='same')(input_layer)
         bn1 = layers.BatchNormalization()(conv1)
@@ -58,7 +57,6 @@ class PPOAgent:
         return model
 
     def _build_critic_network(self):
-        # (This function remains unchanged)
         input_layer = layers.Input(shape=self.observation_shape)
         conv1 = layers.Conv2D(filters=32, kernel_size=(3, 3), activation='relu', padding='same')(input_layer)
         bn1 = layers.BatchNormalization()(conv1)
@@ -86,10 +84,8 @@ class PPOAgent:
         Returns:
             tuple: (action, value, log_prob_action).
         """
-        # Add batch dimension
         obs_tensor = tf.convert_to_tensor(state[np.newaxis, ...], dtype=tf.float32) # <-- CHANGED: Use `state` directly
 
-        # Predict policy logits and state value
         policy_logits = self.actor(obs_tensor)
         value = self.critic(obs_tensor).numpy()[0, 0]
 
@@ -111,7 +107,6 @@ class PPOAgent:
         return action, value, log_prob_action
 
     def store_transition(self, state, action, reward, value, log_prob, terminated):
-        # (This function remains unchanged)
         self.states.append(state)
         self.actions.append(action)
         self.rewards.append(reward)
@@ -120,9 +115,6 @@ class PPOAgent:
         self.terminateds.append(terminated)
 
     def update(self, batch_size=64, num_epochs=3):
-        """
-        Performs PPO updates using the collected rollout data.
-        """
         if len(self.states) == 0:
             return None, None
 
@@ -131,22 +123,18 @@ class PPOAgent:
         actions = np.array(self.actions, dtype=np.int32)
         old_log_probs = np.array(self.log_probs, dtype=np.float32)
         
-        # Calculate empirical returns and advantages
         returns = []
         R = 0
         for r, t in zip(reversed(self.rewards), reversed(self.terminateds)):
-            R = r + self.gamma * R * (1 - t) # Reset R if state was terminal
-            returns.insert(0, R) # Insert at the front to maintain order
+            R = r + self.gamma * R * (1 - t) 
+            returns.insert(0, R) 
         returns = np.array(returns, dtype=np.float32)
 
-        # Recalculate values from critic for advantage calculation
         current_values = self.critic(states_obs).numpy().flatten()
         advantages = returns - current_values
         
-        # Normalize advantages
         advantages = (advantages - np.mean(advantages)) / (np.std(advantages) + 1e-8)
 
-        # Convert to TensorFlow tensors
         states_tensor = tf.convert_to_tensor(states_obs, dtype=tf.float32)
         actions_tensor = tf.convert_to_tensor(actions, dtype=np.int32)
         old_log_probs_tensor = tf.convert_to_tensor(old_log_probs, dtype=tf.float32)
@@ -156,7 +144,6 @@ class PPOAgent:
         total_actor_loss = 0
         total_critic_loss = 0
 
-        # Perform multiple epochs of optimization over the collected data
         for _ in range(num_epochs):
             indices = np.arange(len(self.states))
             np.random.shuffle(indices)
@@ -170,7 +157,6 @@ class PPOAgent:
                 batch_advantages = tf.gather(advantages_tensor, batch_indices)
                 batch_returns = tf.gather(returns_tensor, batch_indices)
 
-                # --- Critic Update ---
                 with tf.GradientTape() as tape:
                     predicted_values = self.critic(batch_states)
                     predicted_values = tf.squeeze(predicted_values, axis=-1)
@@ -179,7 +165,6 @@ class PPOAgent:
                 self.critic_optimizer.apply_gradients(zip(critic_grads, self.critic.trainable_variables))
                 total_critic_loss += critic_loss.numpy()
 
-                # --- Actor Update ---
                 with tf.GradientTape() as tape:
                     current_policy_logits = self.actor(batch_states)
                     current_action_dist = tfd.Categorical(logits=current_policy_logits)
@@ -199,5 +184,4 @@ class PPOAgent:
         return total_actor_loss, total_critic_loss
 
     def clear_rollouts(self):
-        """Clears the stored rollout data."""
         self.states, self.actions, self.rewards, self.values, self.log_probs, self.terminateds = [],[],[],[],[],[]
