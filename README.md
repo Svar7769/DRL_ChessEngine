@@ -33,7 +33,7 @@ Follow these steps to get the training environment up and running on your local 
 
 1.  **Clone the repository:**
     ```bash
-    git clone [https://github.com/your-username/DRL_ChessEngine.git](https://github.com/your-username/DRL_ChessEngine.git)
+    git clone [[https://github.com/your-username/DRL_ChessEngine.git](https://github.com/your-username/DRL_ChessEngine.git)](https://github.com/Svar7769/DRL_ChessEngine.git)
     cd DRL_ChessEngine
     ```
 
